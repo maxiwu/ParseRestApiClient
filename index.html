@@ -1,0 +1,184 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html ng-app="parseApp">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<title>demo</title>
+
+<script
+	src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.5/angular.min.js"></script>
+<script src="js/parsehelp.js"></script>
+<script src="js/q.js"></script>
+<script type="text/javascript">
+	var app = angular.module("parseApp", []);
+
+	var appid = "H5hb60m7ZmY3jsevJijk8EhCMXnhvsirZ8GGqG9s";
+	var restkey = "XNSGm2KlLtq8hPIVjnqEAEIFVKtSNsFTizpDn1Qc";
+
+	//try to create a promise with $q. always resolve
+	function asyncSeq($q) {
+		var deferred = $q.defer();
+
+		if (true) {
+			deferred.resolve();
+		} else {
+			deferred.reject();
+		}
+
+		return deffered.promise;
+	}
+
+	//normal version
+	function makeSequence(chapters) {
+		var chpar = chapters.data.result;
+		chpar.forEach(function(item) {
+			alert(item)
+		});
+	}
+
+	function fromJsonWithDate(literal) {
+		//ISODate("1924-12-03T05:00:00Z")
+		var pattern = /(ISODate\(\"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}\:[0-9]{2}\:[0-9]{2}Z\"\))/g;
+		var matcher = literal.match(pattern);
+		var DateHolder = {};
+		var jsonStr = literal;
+		for ( var key in matcher) {
+			var value = matcher[key];
+			var placeholder = "$ISODATE" + key;
+			jsonStr = jsonStr.replace(value, '"' + placeholder + '"');
+			var dsta = value.indexOf('"') + 1;
+			var dend = value.lastIndexOf('"');
+			var dstr = value.substring(dsta, dend);
+			DateHolder[placeholder] = new Date(dstr);
+		}
+		//$scope.contentArea = jsonStr;
+
+		var mediaJson = angular.fromJson(jsonStr);
+		//replace "parseDate" with Date Object
+		for ( var key in mediaJson) {
+			if (DateHolder.hasOwnProperty(mediaJson[key])) {
+				mediaJson[key] = DateHolder[mediaJson[key]];
+			}
+		}
+
+		return mediaJson;
+	}
+	
+	function fromJsonWithParseDate(literal) {
+		var pattern = /(ISODate\(\"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}\:[0-9]{2}\:[0-9]{2}Z\"\))/g;
+		var matcher = literal.match(pattern);
+		var DateHolder = {};
+		var jsonStr = literal;
+		for ( var key in matcher) {
+			var value = matcher[key];
+			var dsta = value.indexOf('"');
+			var dend = value.lastIndexOf('"')+1;
+			var dstr = value.substring(dsta, dend);
+			var placeholder = "{\"__type\":\"Date\",\"iso\":"+dstr+"}";
+			jsonStr = jsonStr.replace(value, placeholder);
+		}
+		var mediaJson = angular.fromJson(jsonStr);
+	
+		return mediaJson;
+	}
+
+	app.controller("mainCtrl", [
+			'$scope',
+			'$http',
+			"$q",
+			function($scope, $http, $q) {
+				//try cloud delay service
+				var phttp = new ParseRestHttp($http, appid, restkey);
+
+				var biosUrl = "https://api.parse.com/1/classes/bios";
+				var simUrl = "https://api.parse.com/1/classes/simple";
+
+				/* 	function addHtmlToPage(content) {
+					
+						console.log(content.data.result);
+						var paragraph = content.data.result + '\n'+ '\n';
+						$scope.contentArea += paragraph;
+					} */
+
+				$scope.funcOne = function() {
+					var postpromise = phttp.Post(biosUrl, null, angular
+							.fromJson($scope.contentArea));
+					postpromise.then(function successCallback(response) {
+						// this callback will be called asynchronously
+						// when the response is available
+						alert(response);
+					}, function errorCallback(response) {
+						// called asynchronously if an error occurs
+						// or server returns response with an error status.
+						alert(response.data.code + "; " + reponse.data.error);
+					});
+				}
+
+				/* $scope.funcTwo = function(){
+					phttp.Post(chaptersurl).then(function(chapters){
+						return($q.all(
+							chapters.data.result.map(getJSON)
+							))
+					}).then(function(chapters) {
+					    chapters.forEach(function(chp){addHtmlToPage(chp);}
+					    		
+					    		)
+					  });
+				}
+				
+				 */
+				$scope.funcThree = function() {
+
+					/* 	phttp.Post(simUrl, null, angular
+								.fromJson($scope.contentArea)).then(function successCallback(response) {
+								    // this callback will be called asynchronously
+								    // when the response is available
+								    alert(response);
+								  }, function errorCallback(response) {
+								    // called asynchronously if an error occurs
+								    // or server returns response with an error status.
+									  alert(response);
+								  }); */
+
+					/* SHIT
+					"startDate": {
+					"__type": "Date",
+					"iso": "2014-10-13T12:30:00.000Z"
+					}
+					 */
+					phttp.Post(biosUrl, null,
+							fromJsonWithParseDate($scope.contentArea)).then(
+							function successCallback(response) {
+								// this callback will be called asynchronously
+								// when the response is available
+								alert(response.data.objectId + "; "
+										+ response.statusText);
+							},
+							function errorCallback(response) {
+								// called asynchronously if an error occurs
+								// or server returns response with an error status.
+								alert(response.data.code + "; "
+										+ response.data.error);
+							});
+				}
+
+				$scope.clean = function() {
+					$scope.contentArea = "";
+				}
+
+			} ]);
+</script>
+</head>
+<body>
+	<div class="container" ng-controller="mainCtrl">
+		<p>
+			<button ng-click="funcOne()">Store Object</button>
+			<button ng-click="funcTwo()">Get Objects</button>
+			<button ng-click="funcThree()">Test Json Parse</button>
+			<button ng-click="clean()">clean content</button>
+		</p>
+		<textarea cols="120" rows="60" ng-model="contentArea"></textarea>
+		<!-- /container -->
+	</div>
+</body>
+</html>
